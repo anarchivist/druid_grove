@@ -1,24 +1,24 @@
 #! /usr/bin/env bash
 
-collinfo=$(curl -H 'Accept: application/json' \
-  https://searchworks.stanford.edu/view/$CATKEY | \
-  jq -r --arg CATKEY "$CATKEY" '.response.document | {
+# TODO: Create paged IIIF collections to handle collections with > 10000 objects
+
+collinfo=$(curl -sH 'Accept: application/json' \
+  https://searchworks.stanford.edu/view/$DRUID | \
+  jq -r --arg DRUID "$DRUID" '.response.document | {
     "@context": "http://iiif.io/api/presentation/2/context.json",
-    "@id": "https://example.com/iiifcollection.json",
+    "@id": ("https://sul-dlss-labs/iiif-collections/" + $DRUID + ".json"),
     "@type": "sc:Collection",
     "label": (.["title_full_display"]),
     "description": (.["summary_display"][0]),
-    "seeAlso": (.["managed_purl_urls"][0])
+    "seeAlso": ("https://purl.stanford.edu/" + $DRUID)
   }')
 
-# $INFILE is created from the following, but up rows as needed https://sul-solr-c/solr/argo3_prod/select?fl=id,sw_display_title_tesim&q=is_member_of_collection_ssim%3A"info%3Afedora%2Fdruid%3A$druid"&wt=json&rows=17000
-
-cat $INFILE | jq -r --arg collinfo "$collinfo" '(($collinfo | fromjson) + {
-  "manifests": [.response.docs[] |
+curl -s "https://purl-fetcher.stanford.edu/collections/druid:$DRUID/purls?per_page=10000" | jq -r --arg collinfo "$collinfo" '(($collinfo | fromjson) + {
+  "manifests": [.purls[] |
     {
-      "@id": ("https://purl.stanford.edu/" + (.["id"] | split(":")[1]) + "/iiif/manifest"),
+      "@id": ("https://purl.stanford.edu/" + (.["druid"] | split(":")[1]) + "/iiif/manifest"),
       "@type": "sc:Manifest",
-      "label": (.["sw_display_title_tesim"][0])
+      "label": (.["title"])
     }
   ]
 })'
